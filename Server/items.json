@@ -1,0 +1,17 @@
+[
+  {
+    "itemName": "banana",
+    "buyItNowPrice": 20,
+    "currentPrice": 2
+  },
+  {
+    "itemName": "car",
+    "buyItNowPrice": 20,
+    "currentPrice": 2
+  },
+  {
+    "itemName": "soccerball",
+    "buyItNowPrice": 20,
+    "currentPrice": 2
+  }
+]
