@@ -1,17 +1,23 @@
 [
   {
-    "itemName": "banana",
-    "buyItNowPrice": 20,
-    "currentPrice": 2
+    "item_name": "banana",
+	"item_description": "yellow fruit",
+	"price": 2.00,
+    "buy_it_now": 20.00,
+	"time_remaining": 60
   },
   {
-    "itemName": "car",
-    "buyItNowPrice": 20,
-    "currentPrice": 2
+    "item_name": "car",
+	"item_description": "automobile",
+	"price": 20.00,
+    "buy_it_now": 200.00,
+	"time_remaining": 30
   },
   {
-    "itemName": "soccerball",
-    "buyItNowPrice": 20,
-    "currentPrice": 2
+    "item_name": "soccer ball",
+	"item_description": "sports item",
+	"price": 7.00,
+    "buy_it_now": 30.0,
+	"time_remaining": 90
   }
 ]
