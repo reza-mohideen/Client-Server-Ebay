@@ -8,11 +8,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 
@@ -20,7 +19,7 @@ public class Server{
 	private ArrayList<PrintWriter> clientOutputStreams;
 	//public AuctionItem banana = new AuctionItem("banana",2);
 	public static List<AuctionItem> items = new ArrayList<>();
-	public static List<String> itemNames = new ArrayList<>();
+	public static HashMap<Integer, AuctionItem> items_dict = new HashMap<Integer, AuctionItem>();
 
 	public static db_factory aws = new db_factory("auctiodb.cq2ovdkgqk2v.us-east-1.rds.amazonaws.com",
 			3306,"auctionDB","admin","gostars99");
@@ -56,25 +55,50 @@ public class Server{
 			// convert JSON array to list of items
 			items = new Gson().fromJson(reader, new TypeToken<List<AuctionItem>>() {}.getType());
 
+			// clear items table in database upon start or restart of server
+			System.out.println("Dropping Table...");
+			String drop_query = "DROP TABLE IF EXISTS `items`;";
+
+			String create_query = "CREATE TABLE `items` " +
+					"  (`id` int(11) NOT NULL AUTO_INCREMENT," +
+					"  `item_id` int(11) NOT NULL," +
+					"  `item_name` varchar(32) NOT NULL," +
+					"  `item_description` varchar(128) NOT NULL," +
+					"  `price` double NOT NULL," +
+					"  `buy_it_now` double NOT NULL," +
+					"  `last_bid` double," +
+					"  `customer` int(11) DEFAULT NULL," +
+					"  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+					"  `expires_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+					"  `expired` tinyint(1) NOT NULL DEFAULT FALSE," +
+					"  `sold` tinyint(1) NOT NULL DEFAULT FALSE," +
+					"  PRIMARY KEY (`id`)" +
+					") ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+			Statement s = conn.createStatement();
+			int rs = s.executeUpdate(drop_query);
+			rs = s.executeUpdate(create_query);
+
 			// input list into database
-
-
+			System.out.println("Adding items to table...");
 			int item_id = 0;
 			for (AuctionItem item: items) {
-				String query = "INSERT INTO items (item_id, item_name, item_description, start_price, buy_it_now, expires_at) " +
-						"VALUES (?,?,?,?,?,DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " +  item.time_remaining + " SECOND))";
+				items_dict.put(item_id, item);
+				String query = "INSERT INTO items (item_id, item_name, item_description, price, buy_it_now, expires_at) " +
+						"VALUES (?,?,?,?,?,DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " +  item.getTimeRemaining() + " SECOND))";
+				System.out.println(item.getItemName());
 				PreparedStatement insert = conn.prepareStatement(query);
 				insert.setInt(1, item_id);
-				insert.setString(2, item.item_name);
-				insert.setString(3, item.item_description);
-				insert.setDouble(4, item.price);
-				insert.setDouble(5, item.buy_it_now);
+				insert.setString(2, item.getItemName());
+				insert.setString(3, item.getItemDescription());
+				insert.setDouble(4, item.getPrice());
+				insert.setDouble(5, item.getBuyItNow());
 				insert.executeUpdate();
+				item_id++;
 			}
 
 
 			// print users
-			setItemNames(items);
+			//setItemNames(items);
 
 			// close reader
 			reader.close();
@@ -84,10 +108,15 @@ public class Server{
 		}
 	}
 
-	private static void setItemNames(List<AuctionItem> items) {
-		for (AuctionItem item: items) {
-			itemNames.add(item.item_name);
-		}
+	private static ResultSet getBidHistory(List<String> user_bid) throws SQLException {
+		String item_name = user_bid.get(0);
+		int bid = Integer.parseInt(user_bid.get(1));
+
+		String item_query = "SELECT * FROM items WHERE item_name = '" + item_name + "' AND last_bid != NULL";
+		Statement s = conn.createStatement();
+		ResultSet rs = s.executeQuery(item_query);
+
+		return rs;
 	}
 	private void setUpNetworking() throws Exception {
 		clientOutputStreams = new ArrayList<PrintWriter>();
@@ -117,69 +146,68 @@ public class Server{
 	class ClientHandler implements Runnable {
 		private BufferedReader reader;
 		private PrintWriter writer;
+		private ObjectInputStream object_reader;
+		private ObjectOutputStream object_writer;
 
 		public ClientHandler(Socket clientSocket) throws IOException {
 			Socket sock = clientSocket;
 			reader = new BufferedReader(new InputStreamReader(sock.getInputStream()));
 			writer = new PrintWriter(sock.getOutputStream());
+			object_reader = new ObjectInputStream(sock.getInputStream());
+			object_writer = new ObjectOutputStream(sock.getOutputStream());
+			object_writer.writeObject(items);
 
 			for (AuctionItem item: items) {
-				if (item.price != -1) {
-					writer.println(item.item_name + " - Current Bid Price: $" + item.price +
-							" | Buy it Now Price: $" + item.buy_it_now);
+
+				if (item.getPrice() != -1) {
+					writer.println(item.getItemName() + " - Current Bid Price: $" + item.getPrice() +
+							" | Buy it Now Price: $" + item.getBuyItNow());
 					writer.flush();
 				}
 				else {
-					writer.println(item.item_name + "has already been sold");
+					writer.println(item.getItemName() + "has already been sold");
 					writer.flush();
 				}
 			}
+
 		}
+
 
 		public void run() {
 			String message;
+
 			try {
-				while ((message = reader.readLine()) != null) {
-					System.out.println("read " + message);
-					String itemName = message.split(" ")[0];
-					int bid = Integer.parseInt(message.split(" ")[1]);
-					try {
-						// check if item exists
-						AuctionItem item = items.get(itemNames.indexOf(itemName));
 
-						if (item.sold == false) {
-							// check if bid placed > current price
-							if (bid > item.getCurrentPrice()) {
-								item.addBid(bid);
-								notifyClients("new " + item.item_name + " bid: " + item.getCurrentPrice());
-							}
-							else {
-								writer.println("Invalid Bid: current price of " + itemName + " = " + item.getCurrentPrice());
-								writer.flush();
-							}
+				String[] user_bid = (String[]) object_reader.readObject();
+				int item_id = Integer.parseInt(user_bid[0]);
+				String item_name = user_bid[1];
+				int bid = Integer.parseInt(user_bid[2]);
+				String customer = user_bid[3];
 
-							if (bid >= item.buy_it_now) {
-								item.sold = true;
-								item.price = -1;
-								notifyClients(item.item_name + " has been sold for " + bid);
-							}
-						}
-
-						else {
-							writer.println(itemName + " already sold");
-							writer.flush();
-						}
-
-					}
-					catch (Exception e) {
-						writer.println("Invalid Item: Try Again");
+				AuctionItem bid_item = items_dict.get(item_id);
+				if (bid_item.getSold() == false) {
+					// check if bid placed > current price
+					if (bid > bid_item.getPrice()) {
+						bid_item.addBid(bid);
+						notifyClients("new " + bid_item.getItemName() + " bid: " + bid_item.getPrice());
+						bid_item.updateTable(conn, item_id);
+					} else {
+						writer.println("Invalid Bid: current price of " + bid_item + " = " + bid_item.getPrice());
 						writer.flush();
-						e.printStackTrace();
 					}
 
-
+					if (bid >= bid_item.getBuyItNow()) {
+						bid_item.setSold(true);
+						bid_item.setPrice(bid);
+						notifyClients(bid_item.getItemName() + " has been sold for " + bid);
+						bid_item.updateTable(conn, item_id);
+					}
+				} else {
+					writer.println(item_name + " already sold");
+					writer.flush();
 				}
-			} catch (IOException e) {
+
+			} catch (IOException | ClassNotFoundException | SQLException e) {
 				e.printStackTrace();
 			}
 		}
