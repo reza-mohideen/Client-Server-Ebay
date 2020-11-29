@@ -156,7 +156,7 @@ public class Server{
 			object_reader = new ObjectInputStream(sock.getInputStream());
 			object_writer = new ObjectOutputStream(sock.getOutputStream());
 			object_writer.writeObject(items);
-
+/*
 			for (AuctionItem item: items) {
 
 				if (item.getPrice() != -1) {
@@ -169,6 +169,8 @@ public class Server{
 					writer.flush();
 				}
 			}
+
+ */
 
 		}
 
@@ -189,9 +191,13 @@ public class Server{
 					// check if bid placed > current price
 					if (bid > bid_item.getPrice()) {
 						bid_item.addBid(bid);
-						notifyClients("new " + bid_item.getItemName() + " bid: " + bid_item.getPrice());
+						//notifyClients("new " + bid_item.getItemName() + " bid: " + bid_item.getPrice());
 						bid_item.updateTable(conn, item_id);
-					} else {
+
+						writer.println("Sucessfull Bid Placed");
+						writer.flush();
+					}
+					else {
 						writer.println("Invalid Bid: current price of " + bid_item + " = " + bid_item.getPrice());
 						writer.flush();
 					}

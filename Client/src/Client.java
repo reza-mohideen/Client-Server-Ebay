@@ -11,6 +11,7 @@ public class Client {
 	private JTextArea incoming;
 	private JTextField outgoing;
 	private JTable itemTable;
+	private JLabel success;
 	private DefaultTableModel model;
 	private BufferedReader reader;
 	private PrintWriter writer;
@@ -28,6 +29,9 @@ public class Client {
 	private void initView(String user) {
 		JFrame frame = new JFrame(user + " Client Bid Window");
 		JPanel mainPanel = new JPanel();
+		frame.setSize(650, 600);
+		frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 		String[] columnNames = { "Item Name", "Item Description", "Price", "Buy It Now", "Time Remaining", "Sold" };
 		itemTable = new JTable();
@@ -36,11 +40,8 @@ public class Client {
 		itemTable.setBounds(30, 40, 200, 50);
 		itemTable.setModel(model);
 		JScrollPane sp = new JScrollPane(itemTable);
-/*
-     JButton selectButton = new JButton("View Item History");
-     selectButton.addActionListener(new SendButtonListener());
-     selectButton.setBounds(10,50,80,25);
-*/
+		mainPanel.add(sp);
+
 		incoming = new JTextArea();
 		incoming.setLineWrap(true);
 		incoming.setWrapStyleWord(true);
@@ -49,21 +50,21 @@ public class Client {
 		qScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 		qScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
 		incoming.setBounds(10,200,400,400);
+		mainPanel.add(qScroller);
 
 		outgoing = new JTextField(20);
 		outgoing.setBounds(10,300,165,25);
+		mainPanel.add(outgoing);
 
 		JButton sendButton = new JButton("Make Bid!");
 		sendButton.addActionListener(new SendButtonListener());
 		sendButton.setBounds(10,240,80,25);
-
-		mainPanel.add(sp);
-		mainPanel.add(qScroller);
-		//mainPanel.add(selectButton);
-		mainPanel.add(outgoing);
 		mainPanel.add(sendButton);
-		frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
-		frame.setSize(650, 600);
+
+		success = new JLabel("");
+		success.setBounds(10,250,300,25);
+		mainPanel.add(success);
+
 		frame.setVisible(true);
 
 	}
@@ -136,7 +137,8 @@ public class Client {
 			try {
 				while ((message = reader.readLine()) != null) {
 
-					incoming.append(message + "\n");
+					//incoming.append(message + "\n");
+					success.setText(message);
 				}
 			} catch (IOException ex) {
 				ex.printStackTrace();

@@ -69,7 +69,7 @@ public class AuctionItem implements Serializable {
 
     public void updateTable(Connection conn, int item_id) throws SQLException {
         String query = "INSERT INTO items (item_id, item_name, item_description, price, buy_it_now, expires_at,customer) " +
-                "VALUES (?,?,?,?,?,DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " +  Integer.toString(time_remaining) + " SECOND))";
+                "VALUES (?,?,?,?,?,DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " +  Integer.toString(time_remaining) + " SECOND),?)";
         PreparedStatement insert = conn.prepareStatement(query);
         insert.setInt(1, item_id);
         insert.setString(2, item_name);

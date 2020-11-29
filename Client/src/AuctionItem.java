@@ -13,7 +13,7 @@ public class AuctionItem implements Serializable {
     private double price;
     private double buy_it_now;
     private double last_bid;
-    private int customer_id;
+    private String customer;
     private int time_remaining;
     private boolean expired;
     private boolean sold;
@@ -27,8 +27,6 @@ public class AuctionItem implements Serializable {
         this.item_description = item_description;
         this.price = price;
         this.buy_it_now = buy_it_now;
-        //this.last_bid = null;
-        //this.customer_id = Integer.parseInt(null);
         this.time_remaining = time_remaining;
         this.expired = false;
         this.sold = false;
@@ -70,7 +68,7 @@ public class AuctionItem implements Serializable {
     }
 
     public void updateTable(Connection conn, int item_id) throws SQLException {
-        String query = "INSERT INTO items (item_id, item_name, item_description, price, buy_it_now, expires_at) " +
+        String query = "INSERT INTO items (item_id, item_name, item_description, price, buy_it_now, expires_at,customer) " +
                 "VALUES (?,?,?,?,?,DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " +  Integer.toString(time_remaining) + " SECOND))";
         PreparedStatement insert = conn.prepareStatement(query);
         insert.setInt(1, item_id);
@@ -78,6 +76,7 @@ public class AuctionItem implements Serializable {
         insert.setString(3, item_description);
         insert.setDouble(4, price);
         insert.setDouble(5, buy_it_now);
+        insert.setString(6, customer);
         insert.executeUpdate();
     }
 
