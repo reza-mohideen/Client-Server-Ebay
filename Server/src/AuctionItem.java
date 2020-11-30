@@ -9,7 +9,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class AuctionItem implements Serializable {
-    public static List<Double> bids = new ArrayList<>();
 
     private String item_name;
     private String item_description;
@@ -22,6 +21,7 @@ public class AuctionItem implements Serializable {
     private boolean sold;
     private Timer t;
     private int item_id;
+    private PrintWriter writer;
 
     public AuctionItem() {
 
@@ -66,14 +66,15 @@ public class AuctionItem implements Serializable {
                                 writer.println("updateTable" + "," + AuctionItem.this.itemToString() + "," + String.valueOf(AuctionItem.this.item_id));
                                 writer.flush();
 
-                                try {
-                                    AuctionItem.this.updateTable(Server.conn, AuctionItem.this.item_id);
-                                } catch (SQLException throwables) {
-                                    throwables.printStackTrace();
-                                }
-                                t.cancel();
-                                t.purge();
+//                                try {
+//                                    AuctionItem.this.updateTable(Server.conn, AuctionItem.this.item_id);
+//                                } catch (SQLException throwables) {
+//                                    throwables.printStackTrace();
+//                                }
+
                             }
+                            t.cancel();
+                            t.purge();
                         }
 
                         // end timer if time run out and send update to client and database table
@@ -91,9 +92,11 @@ public class AuctionItem implements Serializable {
                                 } catch (SQLException throwables) {
                                     throwables.printStackTrace();
                                 }
-                                t.cancel();
-                                t.purge();
                             }
+                            AuctionItem.this.writer.println("success, Congratulations! You won the " + AuctionItem.this.item_name + " for $" + String.valueOf(AuctionItem.this.price) + "0");
+                            AuctionItem.this.writer.flush();
+                            t.cancel();
+                            t.purge();
                         }
                     }
                 },0,1000
@@ -102,7 +105,6 @@ public class AuctionItem implements Serializable {
 
 
     public void addBid(double bid) {
-        bids.add(bid);
         price = bid;
     }
 
@@ -121,6 +123,7 @@ public class AuctionItem implements Serializable {
     public int getTimeRemaining() {return time_remaining; }
     public String getCustomer() {return customer;}
     public boolean getExpired() {return expired;}
+    public PrintWriter getWriter() {return writer;}
 
     public void setItemName(String s) { item_name = s; }
     public void setItemDescription(String s) { item_description = s;}
@@ -136,6 +139,7 @@ public class AuctionItem implements Serializable {
     public void setTimeRemaining(int i) { time_remaining = i; }
     public void setCustomer(String s) { customer = s;}
     public void setLastBid(Double d) { last_bid = d;}
+    public void setWriter(PrintWriter w) {writer = w;}
 
     public String itemToString() {
         String item = item_name + "," + item_description + "," + price + "," + buy_it_now + ","
@@ -153,10 +157,6 @@ public class AuctionItem implements Serializable {
         this.expired = Boolean.parseBoolean(s.split(",")[7]);
 
         return this;
-    }
-
-    public List<Double> getBids() {
-        return bids;
     }
 
     public void updateTable(Connection conn, int item_id) throws SQLException {

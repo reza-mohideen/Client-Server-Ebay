@@ -171,37 +171,51 @@ public class Server{
 					if (bid_item.getSold() == false) {
 						System.out.println("Bid being placed");
 
-						// check if bid placed > current price
+						// check if bid placed is valid
 						if (bid > bid_item.getPrice()) {
-							bid_item.addBid(bid);
-							writer.println("success,Sucessfull Bid Placed");
-							writer.flush();
 
-							bid_item.setPrice(bid);
-							bid_item.setLastBid(Double.valueOf(bid));
-							bid_item.setCustomer(customer);
+							bid_item.setWriter(writer);
+							// check if bid > buy it now price
+							if (bid >= bid_item.getBuyItNow()) {
+								bid_item.setSold(true);
+								bid_item.setPrice(bid);
+								bid_item.setLastBid(Double.valueOf(bid));
+								bid_item.setCustomer(customer);
+
+								writer.println("success, Congratulations! You won the " + bid_item.getItemName() + " for $" + String.valueOf(bid_item.getPrice()));
+								writer.flush();
+							}
+
+							// valid bid < buy it now
+							else {
+								bid_item.addBid(bid);
+								writer.println("success,Sucessfull Bid Placed");
+								writer.flush();
+
+								bid_item.setPrice(bid);
+								bid_item.setLastBid(Double.valueOf(bid));
+								bid_item.setCustomer(customer);
+//
+//								bid_item.updateTable(conn, item_id);
+//								items_dict.put(item_id, bid_item);
+//								updateClientTable(items_dict);
+							}
 
 							bid_item.updateTable(conn, item_id);
 							items_dict.put(item_id, bid_item);
 							updateClientTable(items_dict);
-
 						}
+
+						// bid lower than current price
 						else {
 							writer.println("success,Invalid Bid: Current price of " + bid_item.getItemName() + " is $" + bid_item.getPrice());
 							writer.flush();
 						}
 
-						if (bid >= bid_item.getBuyItNow()) {
-							bid_item.setSold(true);
-							bid_item.setPrice(bid);
-							bid_item.setLastBid(Double.valueOf(bid));
-							bid_item.setCustomer(customer);
 
-							bid_item.updateTable(conn, item_id);
-							items_dict.put(item_id, bid_item);
-							updateClientTable(items_dict);
-						}
 				}
+
+				//
 				else if (bid_item.getExpired() == true) {
 						writer.println("success," + item_name + " time already expired");
 						writer.flush();
@@ -211,9 +225,6 @@ public class Server{
 					writer.flush();
 				}
 
-
-
-					notifyClients(message);
 				}
 			} catch (IOException | SQLException e) {
 				e.printStackTrace();
