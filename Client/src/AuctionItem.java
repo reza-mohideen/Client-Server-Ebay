@@ -49,9 +49,10 @@ public class AuctionItem implements Serializable {
         return sold;
     }
     public int getTimeRemaining() {return time_remaining; }
+    public String getCustomer() {return customer;}
 
     public void setItemName(String s) { item_name = s; }
-    public void setItemDescription(String s) { item_description = s;};
+    public void setItemDescription(String s) { item_description = s;}
     public void setPrice(double p) {
         price = p;
     }
@@ -62,6 +63,23 @@ public class AuctionItem implements Serializable {
         sold = b;
     }
     public void setTimeRemaining(int i) { time_remaining = i; }
+    public void setCustomer(String s) { customer = s;}
+
+    public String itemToString() {
+        String item = item_name + "," + item_description + "," + price + "," + buy_it_now +
+                "," + sold;
+        return item;
+    }
+
+    public AuctionItem stringToItem(String s) {
+        this.item_name = s.split(",")[1];
+        this.item_description = s.split(",")[2];
+        this.price = Double.parseDouble(s.split(",")[3]);
+        this.buy_it_now = Double.parseDouble(s.split(",")[4]);
+        this.sold = Boolean.parseBoolean(s.split(",")[5]);
+
+        return this;
+    }
 
     public List<Integer> getBids() {
         return bids;
@@ -69,7 +87,7 @@ public class AuctionItem implements Serializable {
 
     public void updateTable(Connection conn, int item_id) throws SQLException {
         String query = "INSERT INTO items (item_id, item_name, item_description, price, buy_it_now, expires_at,customer) " +
-                "VALUES (?,?,?,?,?,DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " +  Integer.toString(time_remaining) + " SECOND))";
+                "VALUES (?,?,?,?,?,DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " +  Integer.toString(time_remaining) + " SECOND),?)";
         PreparedStatement insert = conn.prepareStatement(query);
         insert.setInt(1, item_id);
         insert.setString(2, item_name);

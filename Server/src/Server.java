@@ -8,10 +8,7 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 
 public class Server{
@@ -67,7 +64,7 @@ public class Server{
 					"  `price` double NOT NULL," +
 					"  `buy_it_now` double NOT NULL," +
 					"  `last_bid` double," +
-					"  `customer` int(11) DEFAULT NULL," +
+					"  `customer` varchar(32) DEFAULT NULL," +
 					"  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP," +
 					"  `expires_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP," +
 					"  `expired` tinyint(1) NOT NULL DEFAULT FALSE," +
@@ -140,14 +137,22 @@ public class Server{
 	private void notifyClients(String message) throws IOException {
 
 
-		for (ObjectOutputStream writer : clientOutputObjectStreams) {
+		for (PrintWriter writer : clientOutputStreams) {
 
-			writer.writeObject(items_dict);
+			writer.println(items_dict);
 			writer.flush();
 		}
 	}
 
-
+	private void updateClientTable(HashMap<Integer, AuctionItem> items_dict, String command) {
+		for (PrintWriter writer : clientOutputStreams) {
+			for (Map.Entry<Integer, AuctionItem> entry : items_dict.entrySet()) {
+				AuctionItem item = entry.getValue();
+				writer.println(command + "," + item.itemToString() + "," + (entry.getKey()).toString());
+				writer.flush();
+			}
+		}
+	}
 
 	class ClientHandler implements Runnable {
 		private BufferedReader reader;
@@ -163,6 +168,16 @@ public class Server{
 //			clientOutputObjectStreams.add(object_writer);
 //			object_reader = new ObjectInputStream(sock.getInputStream());
 //			object_writer.writeObject(items_dict);
+//			for (Map.Entry<Integer, AuctionItem> entry : items_dict.entrySet()) {
+//					AuctionItem item = entry.getValue();
+//					writer.println("table," + item.itemToString() + "," + (entry.getKey()).toString());
+//					writer.flush();
+//				}
+			for (Map.Entry<Integer, AuctionItem> entry : items_dict.entrySet()) {
+				AuctionItem item = entry.getValue();
+				writer.println("initializeTable" + "," + item.itemToString());
+				writer.flush();
+			}
 /*
 			for (AuctionItem item: items) {
 
@@ -233,25 +248,59 @@ public class Server{
 			try {
 				while ((message = reader.readLine()) != null) {
 					System.out.println("read " + message);
-//					String[] client_message = message.split(" ");
-//					String id = client_message[0].replaceAll("[^a-zA-Z0-9]", "");
-//					int item_id = Integer.parseInt(id);
-//					String item_name = client_message[1];
-//					int bid = Integer.parseInt(client_message[2]);
-//					String customer = client_message[3];
+					String[] client_message = message.split(",");
+					int item_id = Integer.parseInt(client_message[0]);
+					String item_name = client_message[1];
+					double bid = Double.parseDouble(client_message[2]);
+					String customer = client_message[3];
 
-//					AuctionItem bid_item = items_dict.get(item_id);
-//					bid_item.setPrice(Double.valueOf(bid));
-//					bid_item.setLastBid(Double.valueOf(bid));
-//					bid_item.setCustomer(customer);
-//
-//					items_dict.put(item_id, bid_item);
-//					notifyClients(message);
-//					object_writer.writeObject(items_dict);
-					writer.println("Bid Made");
+					AuctionItem bid_item = items_dict.get(item_id);
+
+					if (bid_item.getSold() == false) {
+						System.out.println("Bid being placed");
+
+						// check if bid placed > current price
+						if (bid > bid_item.getPrice()) {
+							bid_item.addBid(bid);
+							//notifyClients("new " + bid_item.getItemName() + " bid: " + bid_item.getPrice());
+							writer.println("success,Sucessfull Bid Placed");
+							writer.flush();
+
+							bid_item.setPrice(bid);
+							bid_item.setLastBid(Double.valueOf(bid));
+							bid_item.setCustomer(customer);
+
+							bid_item.updateTable(conn, item_id);
+							items_dict.put(item_id, bid_item);
+							updateClientTable(items_dict,"updateTable");
+
+						}
+						else {
+							writer.println("success,Invalid Bid: Current price of " + bid_item.getItemName() + " is $" + bid_item.getPrice());
+							writer.flush();
+						}
+
+						if (bid >= bid_item.getBuyItNow()) {
+							bid_item.setSold(true);
+							bid_item.setPrice(bid);
+							bid_item.setLastBid(Double.valueOf(bid));
+							bid_item.setCustomer(customer);
+
+							bid_item.updateTable(conn, item_id);
+							items_dict.put(item_id, bid_item);
+							updateClientTable(items_dict,"updateTable");
+						}
+				}
+				else {
+					writer.println("success," + item_name + " already sold");
 					writer.flush();
 				}
-			} catch (IOException e) {
+
+
+
+					notifyClients(message);
+				}
+			} catch (IOException | SQLException e) {
 				e.printStackTrace();
 			}
 		}

@@ -4,6 +4,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
+import java.sql.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,11 +21,18 @@ public class Client {
 	private ObjectOutputStream object_writer;
 	private String[][] data = new String[][] {};
 	private String customer;
+	private Connection conn;
+	private JButton sendButton;
 
 	public void run(String user) throws Exception {
 		customer = user;
 		initView(user);
 		setUpNetworking();
+
+		db_factory aws = new db_factory("auctiodb.cq2ovdkgqk2v.us-east-1.rds.amazonaws.com",
+				3306,"auctionDB","admin","gostars99");
+
+		conn = aws.getConnection();
 	}
 
 	private void initView(String user) {
@@ -32,11 +40,10 @@ public class Client {
 		JPanel mainPanel = new JPanel();
 		frame.setSize(650, 600);
 		frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 		frame.add(mainPanel);
 
-		String[] columnNames = { "Item Name", "Item Description", "Price", "Buy It Now", "Time Remaining", "Sold" };
+		String[] columnNames = { "Item Name", "Item Description", "Current Price", "Buy It Now", "Time Remaining", "Sold" };
 		itemTable = new JTable();
 		model = new DefaultTableModel();
 		model.setColumnIdentifiers(columnNames);
@@ -44,6 +51,43 @@ public class Client {
 		itemTable.setModel(model);
 		JScrollPane sp = new JScrollPane(itemTable);
 		mainPanel.add(sp);
+
+		// get selected row data From table to textfields
+		itemTable.addMouseListener(new MouseAdapter(){
+
+			@Override
+			public void mouseClicked(MouseEvent e){
+
+				// i = the index of the selected row
+				int i = itemTable.getSelectedRow();
+				incoming.setText("");
+				String query = "SELECT * FROM items WHERE item_name = '" + (model.getValueAt(i,0)).toString() +
+						"' AND customer IS NOT NULL";
+				sendButton.setText("Make Bid on " + (model.getValueAt(i,0)).toString() + "!");
+				try {
+					Statement s = conn.createStatement();
+					ResultSet rs = s.executeQuery(query);
+
+					int cnt = 0;
+					while (rs.next()) {
+						String item_name = rs.getString("item_name");
+						double last_bid = rs.getDouble("last_bid");
+						String customer = rs.getString("customer");
+						Timestamp time = rs.getTimestamp("created_at");
+
+						String row = String.valueOf(time) + " - " + item_name + " - $" + String.valueOf(last_bid) + "0 - " + customer;
+
+						incoming.append(row + "\n");
+						cnt++;
+					}
+
+					if (cnt == 0) {incoming.append("No bids placed yet on " + (model.getValueAt(i,0)).toString());}
+				} catch (SQLException throwables) {
+					throwables.printStackTrace();
+				}
+
+			}
+		});
 
 		incoming = new JTextArea();
 		incoming.setLineWrap(true);
@@ -59,13 +103,13 @@ public class Client {
 		outgoing.setBounds(10,300,165,25);
 		mainPanel.add(outgoing);
 
-		JButton sendButton = new JButton("Make Bid!");
+		sendButton = new JButton("Make Bid!");
 		sendButton.addActionListener(new SendButtonListener());
 		sendButton.setBounds(10,240,80,25);
 		mainPanel.add(sendButton);
 
 		success = new JLabel("");
-		success.setBounds(10,270,300,25);
+		success.setBounds(10,300,300,25);
 		mainPanel.add(success);
 
 		frame.setVisible(true);
@@ -79,9 +123,6 @@ public class Client {
 		reader = new BufferedReader(streamReader);
 		writer = new PrintWriter(sock.getOutputStream());
 
-//		object_writer = new ObjectOutputStream(sock.getOutputStream());
-//		object_reader = new ObjectInputStream(sock.getInputStream());
-
 		System.out.println("networking established");
 		Thread readerThread = new Thread(new IncomingReader());
 		readerThread.start();
@@ -91,8 +132,8 @@ public class Client {
 		public void actionPerformed(ActionEvent ev) {
 
 			int item_id = itemTable.getSelectedRow();
-			writer.println("0" + " " + "banana" + " " + outgoing.getText() + " " + customer);
-			//writer.println(Integer.toString(item_id) + " " + model.getValueAt(item_id,0).toString() + " " + outgoing.getText() + " " + customer);
+			//writer.println("0" + "," + "banana" + "," + outgoing.getText() + "," + customer);
+			writer.println(Integer.toString(item_id) + "," + model.getValueAt(item_id,0).toString() + "," + outgoing.getText() + "," + customer);
 			writer.flush();
 			outgoing.setText("");
 			outgoing.requestFocus();
@@ -100,6 +141,8 @@ public class Client {
 
 		}
 	}
+
+
 
 	public static void main(String[] args) {
 
@@ -135,9 +178,38 @@ public class Client {
 //			}
 			String message;
 			try {
-				while ((message = reader.readLine()) != null) {
+				while (true) {
+					message = reader.readLine();
+					String[] server_message = message.split(",");
+					//System.out.println(message);
+					if (server_message[0].equals("initializeTable")) {
+						AuctionItem item = new AuctionItem();
+						item.stringToItem(message);
+						//System.out.println(item.getItemName() + ", " + item.getItemDescription() + ", " + item.getPrice());
+					String[] table_data = new String[] {item.getItemName(), item.getItemDescription(),
+							String.valueOf(item.getPrice()), String.valueOf(item.getBuyItNow()),
+							String.valueOf(item.getTimeRemaining()), String.valueOf(item.getSold())};
+					model.addRow(table_data);
 
-					incoming.append(message + "\n");
+					}
+
+					else if (server_message[0].equals("success")) {
+						success.setText(server_message[1]);
+					}
+					else if (server_message[0].equals("updateTable")) {
+						AuctionItem item = new AuctionItem();
+						item.stringToItem(message);
+						//System.out.println(item.getItemName() + ", " + item.getItemDescription() + ", " + item.getPrice());
+//						String[] table_data = new String[] {item.getItemName(), item.getItemDescription(),
+//								String.valueOf(item.getPrice()), String.valueOf(item.getBuyItNow()), "0", "0"};
+						model.setValueAt(item.getItemName(),Integer.parseInt(server_message[6]), 0);
+						model.setValueAt(item.getItemDescription(),Integer.parseInt(server_message[6]), 1);
+						model.setValueAt(String.valueOf(item.getPrice()),Integer.parseInt(server_message[6]), 2);
+						model.setValueAt(String.valueOf(item.getBuyItNow()),Integer.parseInt(server_message[6]), 3);
+						model.setValueAt(item.getTimeRemaining(),Integer.parseInt(server_message[6]), 4);
+						model.setValueAt(item.getSold(),Integer.parseInt(server_message[6]), 5);
+					}
+
 				}
 			} catch (IOException ex) {
 				ex.printStackTrace();
