@@ -5,9 +5,6 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 public class Client {
 	private JTextArea incoming;
@@ -17,8 +14,6 @@ public class Client {
 	private DefaultTableModel model;
 	private BufferedReader reader;
 	private PrintWriter writer;
-	private ObjectInputStream object_reader;
-	private ObjectOutputStream object_writer;
 	private String[][] data = new String[][] {};
 	private String customer;
 	private Connection conn;
@@ -58,7 +53,6 @@ public class Client {
 			@Override
 			public void mouseClicked(MouseEvent e){
 
-				// i = the index of the selected row
 				int i = itemTable.getSelectedRow();
 				incoming.setText("");
 				String query = "SELECT * FROM items WHERE item_name = '" + (model.getValueAt(i,0)).toString() +
@@ -132,7 +126,6 @@ public class Client {
 		public void actionPerformed(ActionEvent ev) {
 
 			int item_id = itemTable.getSelectedRow();
-			//writer.println("0" + "," + "banana" + "," + outgoing.getText() + "," + customer);
 			writer.println(Integer.toString(item_id) + "," + model.getValueAt(item_id,0).toString() + "," + outgoing.getText() + "," + customer);
 			writer.flush();
 			outgoing.setText("");
@@ -158,34 +151,14 @@ public class Client {
 		@Override
 		public void run() {
 
-
-//			try {
-//
-//				System.out.println("Getting Objects");
-//				HashMap<Integer, AuctionItem> items = (HashMap<Integer, AuctionItem>) object_reader.readObject();
-//				for (Map.Entry<Integer, AuctionItem> entry : items.entrySet()) {
-//					AuctionItem item = entry.getValue();
-//					System.out.println(item.getItemName() + ", " + item.getItemDescription() + ", " + item.getPrice());
-//					String[] table_data = new String[] {item.getItemName(), item.getItemDescription(),
-//							String.valueOf(item.getPrice()), String.valueOf(item.getBuyItNow()), "0", "0"};
-//					model.addRow(table_data);
-//				}
-//
-//			} catch (IOException | ClassNotFoundException e) {
-//				System.out.println("table error");
-//
-//				e.printStackTrace();
-//			}
 			String message;
 			try {
 				while (true) {
 					message = reader.readLine();
 					String[] server_message = message.split(",");
-					//System.out.println(message);
 					if (server_message[0].equals("initializeTable")) {
 						AuctionItem item = new AuctionItem();
 						item.stringToItem(message);
-						//System.out.println(item.getItemName() + ", " + item.getItemDescription() + ", " + item.getPrice());
 					String[] table_data = new String[] {item.getItemName(), item.getItemDescription(),
 							String.valueOf(item.getPrice()), String.valueOf(item.getBuyItNow()),
 							String.valueOf(item.getTimeRemaining()), String.valueOf(item.getSold())};
@@ -199,9 +172,6 @@ public class Client {
 					else if (server_message[0].equals("updateTable")) {
 						AuctionItem item = new AuctionItem();
 						item.stringToItem(message);
-						//System.out.println(item.getItemName() + ", " + item.getItemDescription() + ", " + item.getPrice());
-//						String[] table_data = new String[] {item.getItemName(), item.getItemDescription(),
-//								String.valueOf(item.getPrice()), String.valueOf(item.getBuyItNow()), "0", "0"};
 						model.setValueAt(item.getItemName(),Integer.parseInt(server_message[6]), 0);
 						model.setValueAt(item.getItemDescription(),Integer.parseInt(server_message[6]), 1);
 						model.setValueAt(String.valueOf(item.getPrice()),Integer.parseInt(server_message[6]), 2);
