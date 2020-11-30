@@ -30,12 +30,8 @@ public class Client {
 		JFrame frame = new JFrame(user + " Client Bid Window");
 		JPanel mainPanel = new JPanel();
 		frame.setSize(650, 600);
-		//frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
+		frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-		frame.add(mainPanel);
-
-		//mainPanel.setLayout(null);
 
 		String[] columnNames = { "Item Name", "Item Description", "Price", "Buy It Now", "Time Remaining", "Sold" };
 		itemTable = new JTable();
@@ -123,6 +119,7 @@ public class Client {
 
 				System.out.println("Getting Objects");
 				List<AuctionItem> items = (List<AuctionItem>) object_reader.readObject();
+				int cnt = 0;
 				for (AuctionItem item : items) {
 					System.out.println(item.getItemName() + ", " + item.getItemDescription() + ", " + item.getPrice());
 					String[] table_data = new String[] {item.getItemName(), item.getItemDescription(),
