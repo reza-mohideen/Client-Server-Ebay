@@ -1,4 +1,3 @@
-
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import jdk.nashorn.internal.parser.JSONParser;
@@ -17,6 +16,7 @@ import java.util.List;
 
 public class Server{
 	private ArrayList<PrintWriter> clientOutputStreams;
+	private ArrayList<ObjectOutputStream> clientOutputObjectStreams;
 	//public AuctionItem banana = new AuctionItem("banana",2);
 	public static List<AuctionItem> items = new ArrayList<>();
 	public static HashMap<Integer, AuctionItem> items_dict = new HashMap<Integer, AuctionItem>();
@@ -120,12 +120,15 @@ public class Server{
 	}
 	private void setUpNetworking() throws Exception {
 		clientOutputStreams = new ArrayList<PrintWriter>();
+		clientOutputObjectStreams = new ArrayList<ObjectOutputStream>();
 		@SuppressWarnings("resource")
 		ServerSocket serverSock = new ServerSocket(4242);
 		while (true) {
 			Socket clientSocket = serverSock.accept();
 			PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
+			//ObjectOutputStream writer_object = new ObjectOutputStream(clientSocket.getOutputStream());
 			clientOutputStreams.add(writer);
+			//clientOutputObjectStreams.add(writer_object);
 
 			Thread t = new Thread(new ClientHandler(clientSocket));
 			t.start();
@@ -134,14 +137,17 @@ public class Server{
 
 	}
 
-	private void notifyClients(String message) {
+	private void notifyClients(String message) throws IOException {
 
 
-		for (PrintWriter writer : clientOutputStreams) {
-			writer.println(message);
+		for (ObjectOutputStream writer : clientOutputObjectStreams) {
+
+			writer.writeObject(items_dict);
 			writer.flush();
 		}
 	}
+
+
 
 	class ClientHandler implements Runnable {
 		private BufferedReader reader;
@@ -153,9 +159,10 @@ public class Server{
 			Socket sock = clientSocket;
 			reader = new BufferedReader(new InputStreamReader(sock.getInputStream()));
 			writer = new PrintWriter(sock.getOutputStream());
-			object_reader = new ObjectInputStream(sock.getInputStream());
-			object_writer = new ObjectOutputStream(sock.getOutputStream());
-			object_writer.writeObject(items);
+//			object_writer = new ObjectOutputStream(sock.getOutputStream());
+//			clientOutputObjectStreams.add(object_writer);
+//			object_reader = new ObjectInputStream(sock.getInputStream());
+//			object_writer.writeObject(items_dict);
 /*
 			for (AuctionItem item: items) {
 
@@ -174,46 +181,77 @@ public class Server{
 
 		}
 
-
+		@Override
 		public void run() {
+//			try {
+//
+//				while (true) {
+//					Object readObject = object_reader.readObject();
+//					String[] user_bid = (String[]) readObject;
+//					int item_id = Integer.parseInt(user_bid[0]);
+//					String item_name = user_bid[1];
+//					int bid = Integer.parseInt(user_bid[2]);
+//					String customer = user_bid[3];
+//
+//					AuctionItem bid_item = items_dict.get(item_id);
+//					System.out.println(bid_item.getItemName() + ", " + bid_item.getItemDescription());
+//				}
+
+//				if (bid_item.getSold() == false) {
+//					System.out.println("Bid being places");
+//					// check if bid placed > current price
+//					if (bid > bid_item.getPrice()) {
+//						bid_item.addBid(bid);
+//						//notifyClients("new " + bid_item.getItemName() + " bid: " + bid_item.getPrice());
+//						bid_item.updateTable(conn, item_id);
+//						//object_writer.writeObject(items);
+//						writer.println("Sucessfull Bid Placed");
+//						writer.flush();
+//					}
+//					else {
+//						writer.println("Invalid Bid: Current price of " + bid_item.getItemName() + " is $" + bid_item.getPrice());
+//						writer.flush();
+//					}
+//
+//					if (bid >= bid_item.getBuyItNow()) {
+//						bid_item.setSold(true);
+//						bid_item.setPrice(bid);
+//						//notifyClients(bid_item.getItemName() + " has been sold for " + bid);
+//						bid_item.updateTable(conn, item_id);
+//					}
+//				} else {
+//					writer.println(item_name + " already sold");
+//					writer.flush();
+//				}
+//
+//			} catch (IOException | ClassNotFoundException e) {
+//				System.out.println("Server Error");
+//				e.printStackTrace();
+//			}
+
 			String message;
-
 			try {
+				while ((message = reader.readLine()) != null) {
+					System.out.println("read " + message);
+//					String[] client_message = message.split(" ");
+//					String id = client_message[0].replaceAll("[^a-zA-Z0-9]", "");
+//					int item_id = Integer.parseInt(id);
+//					String item_name = client_message[1];
+//					int bid = Integer.parseInt(client_message[2]);
+//					String customer = client_message[3];
 
-				String[] user_bid = (String[]) object_reader.readObject();
-				int item_id = Integer.parseInt(user_bid[0]);
-				String item_name = user_bid[1];
-				int bid = Integer.parseInt(user_bid[2]);
-				String customer = user_bid[3];
-
-				AuctionItem bid_item = items_dict.get(item_id);
-				if (bid_item.getSold() == false) {
-					// check if bid placed > current price
-					if (bid > bid_item.getPrice()) {
-						bid_item.addBid(bid);
-						//notifyClients("new " + bid_item.getItemName() + " bid: " + bid_item.getPrice());
-						bid_item.updateTable(conn, item_id);
-
-						writer.println("Sucessfull Bid Placed");
-						writer.flush();
-					}
-					else {
-						writer.println("Invalid Bid: current price of " + bid_item + " = " + bid_item.getPrice());
-						writer.flush();
-					}
-
-					if (bid >= bid_item.getBuyItNow()) {
-						bid_item.setSold(true);
-						bid_item.setPrice(bid);
-						notifyClients(bid_item.getItemName() + " has been sold for " + bid);
-						bid_item.updateTable(conn, item_id);
-					}
-				} else {
-					writer.println(item_name + " already sold");
+//					AuctionItem bid_item = items_dict.get(item_id);
+//					bid_item.setPrice(Double.valueOf(bid));
+//					bid_item.setLastBid(Double.valueOf(bid));
+//					bid_item.setCustomer(customer);
+//
+//					items_dict.put(item_id, bid_item);
+//					notifyClients(message);
+//					object_writer.writeObject(items_dict);
+					writer.println("Bid Made");
 					writer.flush();
 				}
-
-			} catch (IOException | ClassNotFoundException | SQLException e) {
+			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
