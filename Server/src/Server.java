@@ -17,6 +17,7 @@ import java.util.List;
 
 public class Server{
 	private ArrayList<PrintWriter> clientOutputStreams;
+	private ArrayList<ObjectOutputStream> clientOutputObjectStreams;
 	//public AuctionItem banana = new AuctionItem("banana",2);
 	public static List<AuctionItem> items = new ArrayList<>();
 	public static HashMap<Integer, AuctionItem> items_dict = new HashMap<Integer, AuctionItem>();
@@ -120,12 +121,15 @@ public class Server{
 	}
 	private void setUpNetworking() throws Exception {
 		clientOutputStreams = new ArrayList<PrintWriter>();
+		clientOutputObjectStreams = new ArrayList<ObjectOutputStream>();
 		@SuppressWarnings("resource")
 		ServerSocket serverSock = new ServerSocket(4242);
 		while (true) {
 			Socket clientSocket = serverSock.accept();
-			PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
-			clientOutputStreams.add(writer);
+			//PrintWriter writer = new PrintWriter(outputStream);
+			//ObjectOutputStream writer_object = new ObjectOutputStream(clientSocket.getOutputStream());
+			//clientOutputStreams.add(writer);
+			//clientOutputObjectStreams.add(writer_object);
 
 			Thread t = new Thread(new ClientHandler(clientSocket));
 			t.start();
@@ -134,12 +138,12 @@ public class Server{
 
 	}
 
-	private void notifyClients(String message) {
+	private void notifyClients(String message) throws IOException {
 
 
-		for (PrintWriter writer : clientOutputStreams) {
-			writer.println(message);
-			writer.flush();
+		for (ObjectOutputStream writer : clientOutputObjectStreams) {
+
+			writer.writeObject(items);
 		}
 	}
 
@@ -153,8 +157,9 @@ public class Server{
 			Socket sock = clientSocket;
 			reader = new BufferedReader(new InputStreamReader(sock.getInputStream()));
 			writer = new PrintWriter(sock.getOutputStream());
-			object_reader = new ObjectInputStream(sock.getInputStream());
 			object_writer = new ObjectOutputStream(sock.getOutputStream());
+			clientOutputObjectStreams.add(object_writer);
+			object_reader = new ObjectInputStream(sock.getInputStream());
 			object_writer.writeObject(items);
 /*
 			for (AuctionItem item: items) {
@@ -191,14 +196,14 @@ public class Server{
 					// check if bid placed > current price
 					if (bid > bid_item.getPrice()) {
 						bid_item.addBid(bid);
-						//notifyClients("new " + bid_item.getItemName() + " bid: " + bid_item.getPrice());
+						notifyClients("new " + bid_item.getItemName() + " bid: " + bid_item.getPrice());
 						bid_item.updateTable(conn, item_id);
-
+						object_writer.writeObject(items);
 						writer.println("Sucessfull Bid Placed");
 						writer.flush();
 					}
 					else {
-						writer.println("Invalid Bid: current price of " + bid_item + " = " + bid_item.getPrice());
+						writer.println("Invalid Bid: Current price of " + bid_item.getItemName() + " is $" + bid_item.getPrice());
 						writer.flush();
 					}
 
