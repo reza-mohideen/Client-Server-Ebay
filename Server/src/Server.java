@@ -12,7 +12,7 @@ import java.util.*;
 
 
 public class Server{
-	private ArrayList<PrintWriter> clientOutputStreams;
+	public static ArrayList<PrintWriter> clientOutputStreams;
 	public static List<AuctionItem> items = new ArrayList<>();
 	public static HashMap<Integer, AuctionItem> items_dict = new HashMap<Integer, AuctionItem>();
 
@@ -64,7 +64,6 @@ public class Server{
 					"  `last_bid` double," +
 					"  `customer` varchar(32) DEFAULT NULL," +
 					"  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP," +
-					"  `expires_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP," +
 					"  `expired` tinyint(1) NOT NULL DEFAULT FALSE," +
 					"  `sold` tinyint(1) NOT NULL DEFAULT FALSE," +
 					"  PRIMARY KEY (`id`)" +
@@ -77,9 +76,11 @@ public class Server{
 			System.out.println("Adding items to table...");
 			int item_id = 0;
 			for (AuctionItem item: items) {
-				items_dict.put(item_id, item);
-				String query = "INSERT INTO items (item_id, item_name, item_description, price, buy_it_now, expires_at) " +
-						"VALUES (?,?,?,?,?,DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " +  item.getTimeRemaining() + " SECOND))";
+				AuctionItem startTimer = new AuctionItem(item.getItemName(), item.getItemDescription(), item.getPrice(),
+						item.getBuyItNow(), item.getTimeRemaining(), item.getItemId());
+				items_dict.put(item_id, startTimer);
+				String query = "INSERT INTO items (item_id, item_name, item_description, price, buy_it_now) " +
+						"VALUES (?,?,?,?,?)";
 				System.out.println(item.getItemName());
 				PreparedStatement insert = conn.prepareStatement(query);
 				insert.setInt(1, item_id);
@@ -99,16 +100,6 @@ public class Server{
 		}
 	}
 
-	private static ResultSet getBidHistory(List<String> user_bid) throws SQLException {
-		String item_name = user_bid.get(0);
-		int bid = Integer.parseInt(user_bid.get(1));
-
-		String item_query = "SELECT * FROM items WHERE item_name = '" + item_name + "' AND last_bid != NULL";
-		Statement s = conn.createStatement();
-		ResultSet rs = s.executeQuery(item_query);
-
-		return rs;
-	}
 	private void setUpNetworking() throws Exception {
 		clientOutputStreams = new ArrayList<PrintWriter>();
 		@SuppressWarnings("resource")
@@ -135,11 +126,11 @@ public class Server{
 		}
 	}
 
-	private void updateClientTable(HashMap<Integer, AuctionItem> items_dict, String command) {
+	private void updateClientTable(HashMap<Integer, AuctionItem> items_dict) {
 		for (PrintWriter writer : clientOutputStreams) {
 			for (Map.Entry<Integer, AuctionItem> entry : items_dict.entrySet()) {
 				AuctionItem item = entry.getValue();
-				writer.println(command + "," + item.itemToString() + "," + (entry.getKey()).toString());
+				writer.println("updateTable" + "," + item.itemToString() + "," + (entry.getKey()).toString());
 				writer.flush();
 			}
 		}
@@ -148,8 +139,6 @@ public class Server{
 	class ClientHandler implements Runnable {
 		private BufferedReader reader;
 		private PrintWriter writer;
-		private ObjectInputStream object_reader;
-		private ObjectOutputStream object_writer;
 
 		public ClientHandler(Socket clientSocket) throws IOException {
 			Socket sock = clientSocket;
@@ -194,7 +183,7 @@ public class Server{
 
 							bid_item.updateTable(conn, item_id);
 							items_dict.put(item_id, bid_item);
-							updateClientTable(items_dict,"updateTable");
+							updateClientTable(items_dict);
 
 						}
 						else {
@@ -210,8 +199,12 @@ public class Server{
 
 							bid_item.updateTable(conn, item_id);
 							items_dict.put(item_id, bid_item);
-							updateClientTable(items_dict,"updateTable");
+							updateClientTable(items_dict);
 						}
+				}
+				else if (bid_item.getExpired() == true) {
+						writer.println("success," + item_name + " time already expired");
+						writer.flush();
 				}
 				else {
 					writer.println("success," + item_name + " already sold");

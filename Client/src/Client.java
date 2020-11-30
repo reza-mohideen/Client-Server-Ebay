@@ -38,7 +38,7 @@ public class Client {
 
 		frame.add(mainPanel);
 
-		String[] columnNames = { "Item Name", "Item Description", "Current Price", "Buy It Now", "Time Remaining", "Sold" };
+		String[] columnNames = { "Item Name", "Item Description", "Current Price", "Buy It Now", "Time Remaining", "Sold", "Expired" };
 		itemTable = new JTable();
 		model = new DefaultTableModel();
 		model.setColumnIdentifiers(columnNames);
@@ -68,9 +68,14 @@ public class Client {
 						double last_bid = rs.getDouble("last_bid");
 						String customer = rs.getString("customer");
 						Timestamp time = rs.getTimestamp("created_at");
-
+						boolean sold = rs.getBoolean("sold");
 						String row = String.valueOf(time) + " - " + item_name + " - $" + String.valueOf(last_bid) + "0 - " + customer;
-
+						if (sold) {
+							row = row + " SOLD TO: " + customer;
+						}
+						else {
+							row = row + " STILL FOR SALE";
+						}
 						incoming.append(row + "\n");
 						cnt++;
 					}
@@ -161,7 +166,8 @@ public class Client {
 						item.stringToItem(message);
 					String[] table_data = new String[] {item.getItemName(), item.getItemDescription(),
 							String.valueOf(item.getPrice()), String.valueOf(item.getBuyItNow()),
-							String.valueOf(item.getTimeRemaining()), String.valueOf(item.getSold())};
+							String.valueOf(item.getTimeRemaining()), String.valueOf(item.getSold()),
+							String.valueOf(item.getExpired())};
 					model.addRow(table_data);
 
 					}
@@ -172,12 +178,13 @@ public class Client {
 					else if (server_message[0].equals("updateTable")) {
 						AuctionItem item = new AuctionItem();
 						item.stringToItem(message);
-						model.setValueAt(item.getItemName(),Integer.parseInt(server_message[6]), 0);
-						model.setValueAt(item.getItemDescription(),Integer.parseInt(server_message[6]), 1);
-						model.setValueAt(String.valueOf(item.getPrice()),Integer.parseInt(server_message[6]), 2);
-						model.setValueAt(String.valueOf(item.getBuyItNow()),Integer.parseInt(server_message[6]), 3);
-						model.setValueAt(item.getTimeRemaining(),Integer.parseInt(server_message[6]), 4);
-						model.setValueAt(item.getSold(),Integer.parseInt(server_message[6]), 5);
+						model.setValueAt(item.getItemName(),Integer.parseInt(server_message[8]), 0);
+						model.setValueAt(item.getItemDescription(),Integer.parseInt(server_message[8]), 1);
+						model.setValueAt(String.valueOf(item.getPrice()),Integer.parseInt(server_message[8]), 2);
+						model.setValueAt(String.valueOf(item.getBuyItNow()),Integer.parseInt(server_message[8]), 3);
+						model.setValueAt(item.getTimeRemaining(),Integer.parseInt(server_message[8]), 4);
+						model.setValueAt(item.getSold(),Integer.parseInt(server_message[8]), 5);
+						model.setValueAt(item.getExpired(),Integer.parseInt(server_message[8]), 6);
 					}
 
 				}
