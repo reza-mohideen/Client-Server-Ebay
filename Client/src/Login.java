@@ -1,8 +1,11 @@
-import javafx.stage.Stage;
+import javafx.embed.swing.JFXPanel;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
 import java.sql.*;
 import java.util.Base64;
 
@@ -16,32 +19,14 @@ public class Login implements ActionListener {
     private static JCheckBox existingUserCheckBox;
     private static JLabel success;
     private static Connection conn;
-/*
-    private static void setDBConn() throws SQLException, ClassNotFoundException {
-        Class.forName("com.mysql.jdbc.Driver");
-        Connection conn = DriverManager.getConnection(
-                "jdbc:mysql://auctiodb.cq2ovdkgqk2v.us-east-1.rds.amazonaws.com:3306/auctionDB","admin","gostars99");
-
-        Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery("select * from users");
-
-        while (rs.next()) {
-            int id = rs.getInt("id");
-            String username = rs.getString("username");
-            String password = rs.getString("password");
 
 
-            // print the results
-            System.out.format("%s, %s", id, username, password);
-        }
-    }
-*/
     public static void main(String[] args) throws SQLException, ClassNotFoundException {
         JPanel panel = new JPanel();
         JFrame frame = new JFrame("Login Window");
         frame.setSize(350,200);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
+        frame.add(new JFXPanel());
         frame.add(panel);
 
         panel.setLayout(null);
@@ -94,6 +79,9 @@ public class Login implements ActionListener {
         String username = userText.getText();
         String password = new String(passwordText.getPassword());
         String encodedPassword = Base64.getEncoder().encodeToString(password.getBytes());
+        String soundFile = "mixkit-retro-game-notification-212.wav";
+        Media loginSound = new Media(new File(soundFile).toURI().toString());
+        MediaPlayer player = new MediaPlayer(loginSound);
 
         // if user says they already have an account find the user in db
         if (existingUserCheckBox.isSelected()) {
@@ -114,6 +102,7 @@ public class Login implements ActionListener {
                         foundUser = true;
                         success.setText("Login Successful!!!");
                         try {
+                            player.play();
                             new Client().run(username);
                         } catch (Exception exception) {
                             exception.printStackTrace();
@@ -179,8 +168,6 @@ public class Login implements ActionListener {
                     foundUser = false;
                     success.setText("Username already taken.");
                 }
-
-
 
             }
             catch (SQLException throwables) {

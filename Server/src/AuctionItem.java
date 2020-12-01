@@ -38,6 +38,8 @@ public class AuctionItem implements Serializable {
         this.sold = false;
 
         this.t = new Timer();
+
+        // countdown timer ever one second
         t.scheduleAtFixedRate(
                 new TimerTask() {
 
@@ -65,13 +67,6 @@ public class AuctionItem implements Serializable {
                                 AuctionItem.this.time_remaining = 0;
                                 writer.println("updateTable" + "," + AuctionItem.this.itemToString() + "," + String.valueOf(AuctionItem.this.item_id));
                                 writer.flush();
-
-//                                try {
-//                                    AuctionItem.this.updateTable(Server.conn, AuctionItem.this.item_id);
-//                                } catch (SQLException throwables) {
-//                                    throwables.printStackTrace();
-//                                }
-
                             }
                             t.cancel();
                             t.purge();
@@ -82,19 +77,31 @@ public class AuctionItem implements Serializable {
 
                             AuctionItem.this.expired = true;
                             AuctionItem.this.sold = true;
+
+                            // update table with winner
                             for (PrintWriter writer : Server.clientOutputStreams) {
 
                                 writer.println("updateTable" + "," + AuctionItem.this.itemToString() + "," + String.valueOf(AuctionItem.this.item_id));
                                 writer.flush();
 
-                                try {
-                                    AuctionItem.this.updateTable(Server.conn, AuctionItem.this.item_id);
-                                } catch (SQLException throwables) {
-                                    throwables.printStackTrace();
-                                }
                             }
-                            AuctionItem.this.writer.println("success, Congratulations! You won the " + AuctionItem.this.item_name + " for $" + String.valueOf(AuctionItem.this.price) + "0");
-                            AuctionItem.this.writer.flush();
+
+                            // update database
+                            try {
+                                AuctionItem.this.updateTable(Server.conn, AuctionItem.this.item_id);
+                            } catch (SQLException throwables) {
+                                throwables.printStackTrace();
+                            }
+
+                            // try and contact winner client
+                            try {
+                                AuctionItem.this.writer.println("success, Congratulations! You won the " + AuctionItem.this.item_name + " for $" + String.valueOf(AuctionItem.this.price) + "0");
+                                AuctionItem.this.writer.flush();
+                            }
+                            catch (NullPointerException e) {
+                                System.out.println("No clients bid on " + item_name + " when timer ended");
+                            }
+
                             t.cancel();
                             t.purge();
                         }

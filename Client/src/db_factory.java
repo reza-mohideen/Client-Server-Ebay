@@ -1,6 +1,7 @@
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Base64;
 
 public class db_factory {
     private static String host;
@@ -19,6 +20,12 @@ public class db_factory {
 
         endpoint = "jdbc:mysql://" + host + ":" + port + "/" + database;
         System.out.println(endpoint);
+
+        String pass = "gostars99";
+        String encodedPassword = Base64.getEncoder().encodeToString(pass.getBytes());
+        System.out.println(encodedPassword);
+
+
     }
 
     public static Connection getConnection() throws SQLException {

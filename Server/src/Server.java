@@ -163,7 +163,14 @@ public class Server{
 					String[] client_message = message.split(",");
 					int item_id = Integer.parseInt(client_message[0]);
 					String item_name = client_message[1];
-					double bid = Double.parseDouble(client_message[2]);
+					double bid = 0;
+					try {
+						bid = Double.parseDouble(client_message[2]);
+					}
+					catch (NumberFormatException e) {
+						System.out.println("Invalid bid placed");
+					}
+
 					String customer = client_message[3];
 
 					AuctionItem bid_item = items_dict.get(item_id);
@@ -195,10 +202,6 @@ public class Server{
 								bid_item.setPrice(bid);
 								bid_item.setLastBid(Double.valueOf(bid));
 								bid_item.setCustomer(customer);
-//
-//								bid_item.updateTable(conn, item_id);
-//								items_dict.put(item_id, bid_item);
-//								updateClientTable(items_dict);
 							}
 
 							bid_item.updateTable(conn, item_id);
@@ -215,11 +218,13 @@ public class Server{
 
 				}
 
-				//
+				// notify client item has expired
 				else if (bid_item.getExpired() == true) {
 						writer.println("success," + item_name + " time already expired");
 						writer.flush();
 				}
+
+				// notify client item has already sold
 				else {
 					writer.println("success," + item_name + " already sold");
 					writer.flush();

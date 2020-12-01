@@ -1,3 +1,6 @@
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+
 import java.io.*;
 import java.net.*;
 import javax.swing.*;
@@ -7,6 +10,7 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.*;
+import java.util.Base64;
 
 public class Client {
 	private JTextArea incoming;
@@ -20,19 +24,25 @@ public class Client {
 	private String customer;
 	private Connection conn;
 	private JButton sendButton;
+	private Media bidSound;
 
 	public void run(String user) throws Exception {
 		customer = user;
 		initView(user);
 		setUpNetworking();
 
+		String encodedPassword = "Z29zdGFyczk5";
+		byte[] decodedBytes = Base64.getDecoder().decode(encodedPassword);
+
 		db_factory aws = new db_factory("auctiodb.cq2ovdkgqk2v.us-east-1.rds.amazonaws.com",
-				3306,"auctionDB","admin","gostars99");
+				3306,"auctionDB","admin",new String(decodedBytes));
 
 		conn = aws.getConnection();
 	}
 
 	private void initView(String user) {
+
+		// set up frame
 		JFrame frame = new JFrame(user + " Client Bid Window");
 		JPanel mainPanel = new JPanel();
 		frame.setSize(650, 600);
@@ -40,14 +50,17 @@ public class Client {
 		frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
 		frame.add(mainPanel);
 
-		JLabel title = new JLabel("Welcome to eHills Marketplace");
-		title.setFont(new Font("Segoe UI", Font.BOLD, 32));
+		// add title
+		JLabel title = new JLabel("Welcome to eHills Marketplace " + customer);
+		title.setFont(new Font("Segoe UI", Font.BOLD, 24));
 		title.setForeground(Color.WHITE);
 		title.setBounds(10,20,500,25);
 		mainPanel.add(title);
 
+		// add table
 		String[] columnNames = { "Item Name", "Item Description", "Current Price", "Buy It Now", "Time Remaining", "Availability" };
 		itemTable = new JTable() {
+			// change color of cell depending on availability value
 			@Override
 			public Component prepareRenderer(TableCellRenderer renderer, int row, int col) {
 				Component comp = super.prepareRenderer(renderer, row, col);
@@ -70,7 +83,6 @@ public class Client {
 		itemTable.setRowHeight(25);
 		model = new DefaultTableModel();
 		model.setColumnIdentifiers(columnNames);
-		//itemTable.setBounds(30, 40, 500, 50);
 		itemTable.setModel(model);
 		Component c = itemTable.getCellRenderer(0,0).getTableCellRendererComponent(itemTable,null,false,false,0,0);
 		c.setBackground(Color.RED);
@@ -87,7 +99,14 @@ public class Client {
 				incoming.setText("");
 				String query = "SELECT * FROM items WHERE item_name = '" + (model.getValueAt(i,0)).toString() +
 						"' AND customer IS NOT NULL";
+
+				// prefill button and textfield
 				sendButton.setText("Make Bid on " + (model.getValueAt(i,0)).toString() + "!");
+				String _ = ((model.getValueAt(i,2)).toString()).replace("$","");
+				double price = Double.parseDouble(_) + 1;
+				outgoing.setText(String.valueOf(price));
+
+				// grab bid history of item from database
 				try {
 					Statement s = conn.createStatement();
 					ResultSet rs = s.executeQuery(query);
@@ -118,12 +137,14 @@ public class Client {
 			}
 		});
 
+		// add title
 		JLabel bidHistory = new JLabel("Bid History");
-		bidHistory.setFont(new Font("Segoe UI", Font.BOLD, 32));
+		bidHistory.setFont(new Font("Segoe UI", Font.BOLD, 24));
 		bidHistory.setForeground(Color.WHITE);
 		//bidHistory.setBounds(10,20,500,25);
 		mainPanel.add(bidHistory);
 
+		// bid history text area
 		incoming = new JTextArea();
 		incoming.setLineWrap(true);
 		incoming.setWrapStyleWord(true);
@@ -135,10 +156,12 @@ public class Client {
 		incoming.setBounds(10,200,400,400);
 		mainPanel.add(qScroller);
 
+		// make bid area
 		outgoing = new JTextField(20);
 		outgoing.setBounds(10,300,165,25);
 		mainPanel.add(outgoing);
 
+		// send bid button
 		sendButton = new JButton("Make Bid!");
 		sendButton.setBackground(new Color(197, 108, 134));
 		sendButton.setForeground(Color.WHITE);
@@ -147,9 +170,10 @@ public class Client {
 		sendButton.setBounds(10,240,80,25);
 		mainPanel.add(sendButton);
 
+		// feedback text for user
 		success = new JLabel("");
 		success.setForeground(new Color(255,255,255));
-		success.setBounds(10,300,300,25);
+		//success.setBounds(10,300,300,25);
 		mainPanel.add(success);
 
 		frame.setVisible(true);
@@ -168,28 +192,21 @@ public class Client {
 		readerThread.start();
 	}
 
+	// send bid to server
 	class SendButtonListener implements ActionListener {
+		String soundFile = "mixkit-trumpet-fanfare-2293.wav";
+		Media loginSound = new Media(new File(soundFile).toURI().toString());
+		MediaPlayer player = new MediaPlayer(loginSound);
 		public void actionPerformed(ActionEvent ev) {
 
 			int item_id = itemTable.getSelectedRow();
-			writer.println(Integer.toString(item_id) + "," + model.getValueAt(item_id,0).toString() + "," + outgoing.getText() + "," + customer);
+			writer.println(Integer.toString(item_id) + "," + model.getValueAt(item_id, 0).toString() + "," + outgoing.getText() + "," + customer);
 			writer.flush();
 			outgoing.setText("");
 			outgoing.requestFocus();
 
+			player.play();
 
-		}
-	}
-
-
-
-	public static void main(String[] args) {
-
-
-		try {
-			new Client().run("test");
-		} catch (Exception e) {
-			e.printStackTrace();
 		}
 	}
 
@@ -202,6 +219,8 @@ public class Client {
 				while (true) {
 					message = reader.readLine();
 					String[] server_message = message.split(",");
+
+					// on startup at items to table
 					if (server_message[0].equals("initializeTable")) {
 						AuctionItem item = new AuctionItem();
 						item.stringToItem(message);
@@ -213,9 +232,12 @@ public class Client {
 
 					}
 
+					// update feedback for client
 					else if (server_message[0].equals("success")) {
 						success.setText(server_message[1]);
 					}
+
+					// update values of table
 					else if (server_message[0].equals("updateTable")) {
 						AuctionItem item = new AuctionItem();
 						item.stringToItem(message);
@@ -231,10 +253,7 @@ public class Client {
 						else {
 							model.setValueAt(true,Integer.parseInt(server_message[8]), 5);
 						}
-//						model.setValueAt(item.getSold(),Integer.parseInt(server_message[8]), 5);
-//						model.setValueAt(item.getExpired(),Integer.parseInt(server_message[8]), 6);
 					}
-
 				}
 			} catch (IOException ex) {
 				ex.printStackTrace();
